@@ -4,6 +4,8 @@
 #include "ProfileScene.h"
 #include "RewardsScene.h"
 
+#include <curl\include\win32\curl\curl.h>
+
 #include <iostream>
 
 #include "ui/CocosGUI.h"
@@ -25,6 +27,20 @@ bool HelloWorld::init()
         return false;
     }
     
+	CURL *curl;
+	CURLcode res;
+
+	curl = curl_easy_init();
+	if (curl) {
+	auto c = curl_easy_setopt(curl, CURLOPT_URL, "http://api.thingtia.cloud/data/provedor1.component1.Score1/9999");
+	
+		std::cout << c;
+	
+		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "http://api.thingtia.cloud/data/provedor1/score1/9999");
+		
+		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "pulse=70 & temp=35");
+	}
+
     auto visibleSize = Director::getInstance()->getVisibleSize();
     Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
