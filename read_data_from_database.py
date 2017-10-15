@@ -35,9 +35,4 @@ def put_sensor_information(sensor, value):
 get_sensor_information("Luminosity1")
 
 
-progress = pb.ProgressBar(max_value=100)
-for i in range(1, 101):
-    progress.update(i)
-    put_sensor_information("Luminosity"+str(i), "1.1,1.1*1")
-    put_sensor_information("Garbage"+str(i), "1.1,1.1*1")
-    put_sensor_information("Bin"+str(i), "1.1,1.1*1")
+put_sensor_information("Score1", 6)

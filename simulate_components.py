@@ -3,11 +3,13 @@ import json
 import numpy as np
 import cv2
 import datetime
+import progressbar as pb
 
 HEADER = {'IDENTITY_KEY': 'e3ba38839c9f601471b8f3f662a38ae23473bebf63cec53a183edec2d5c84e75'}
 COMPONENTS =[]
-TOT_COMPONENTS = 100
+TOT_COMPONENTS = 10
 SIZE = 5
+IMG_INDX = 0
 
 LAT_TOP_LEFT = 41.405251  # y component
 LONG_TOP_LEFT = 2.166431  # x component
@@ -15,7 +17,7 @@ LAT_BOTTOM_LEFT = 41.398392
 LONG_BOTTOM_LEFT = 2.175421
 LAT_BOTTOM_RIGHT = 41.405183
 LONG_BOTTOM_RIGHT = 2.184509
-THRESHOLD = 5
+THRESHOLD = 15
 
 pts1 = np.float32([[0, SIZE], [0, 0], [SIZE, 0]])
 pts2 = np.float32([[LONG_TOP_LEFT, LAT_TOP_LEFT], [LONG_BOTTOM_LEFT, LAT_BOTTOM_LEFT],
@@ -44,14 +46,14 @@ def get_sensor_information(sensor):
     out = out.split('*')
     out[0] = out[0].split(",")
     out[1] = bool(out[1])
+    #location
     out[0][0] = float(out[0][0])
     out[0][1] = float(out[0][1])
-    time = data['observations'][0]["timestamp"]
-    time = time.split("T")
-    time[1] = time[1].split(":")
-    time[0] = time[0].split("/")
-    date = [int(time[0][2]), int(time[0][1]), int(time[0][0]), int(time[1][0]), int(time[1][1]), int(time[1][2])]
-    out.append(date)
+    #date
+    out[2] = out[2].split(",")
+    out[2][0] = float(out[2][0])
+    out[2][1] = float(out[2][1])
+    out[2][2] = float(out[2][2])
     return out
 
 
@@ -61,8 +63,8 @@ class Component(object):
         y = int(np.random.rand() * SIZE)
         self.pos = np.array([[x, y]])
         self.prob_post_lumin = np.random.rand()*0.5
-        self.prob_post_garb = np.random.rand()
-        self.prob_post_bin = np.random.rand()
+        self.prob_post_garb = np.random.rand()*0.8
+        self.prob_post_bin = np.random.rand()*0.8
         self.index = index
 
     def post(self):
@@ -70,16 +72,20 @@ class Component(object):
         new_pos = M * (np.matrix([[np.random.rand()], [np.random.rand()], [1]])+np.matrix([[self.pos[0][0]], [self.pos[0][1]], [1]]))
         x = new_pos[0]
         y = new_pos[1]
+        now = datetime.datetime.now()
+        h = now.hour
+        m = now.minute
+        s = now.second
         if BIN_MAP[self.pos[0][1]][self.pos[0][0]] > self.prob_post_bin:
-            path_name = "/{0:},{1:}*{2:}".format(x, y, BIN_MAP[self.y_pos][self.x_pos] > 1)
+            path_name = "/{0:},{1:}*{2:}*{3:},{4:},{5:}".format(x, y, BIN_MAP[self.pos[0][1]][self.pos[0][0]]>1,h,m,s)
             path_name = URL+"Bin"+str(self.index)+path_name
             requests.put(path_name, headers=HEADER)
         if GARBAGE_MAP[self.pos[0][1]][self.pos[0][0]] > self.prob_post_garb:
-            path_name = "/{0:},{1:}*{2:}".format(x, y, GARBAGE_MAP[self.y_pos][self.x_pos] > 1)
+            path_name = "/{0:},{1:}*{2:}*{3:},{4:},{5:}".format(x,y,GARBAGE_MAP[self.pos[0][1]][self.pos[0][0]]>1,h,m,s)
             path_name = URL + "Garbage" + str(self.index) + path_name
             requests.put(path_name, headers=HEADER)
         if abs(1-LUMINOSITY) > self.prob_post_lumin:
-            path_name = "/{0:},{1:}*{2:}".format(x, y, LUMINOSITY < 0.5)
+            path_name = "/{0:},{1:}*{2:}*{3:},{4:},{5:}".format(x, y, LUMINOSITY < 0.5, h, m, s)
             path_name = URL+"Luminosity"+str(self.index)+path_name
             requests.put(path_name, headers=HEADER)
 
@@ -87,9 +93,6 @@ class Component(object):
 def function_horvel():
     global HEADER, SIZE, LUMINOSITY, GARBAGE_MAP, BIN_MAP
     now = datetime.datetime.now()
-    now_y = now.year
-    now_m = now.month
-    now_d = now.day
     now_h = now.hour
     now_mi= now.minute
     now_s = now.second
@@ -98,22 +101,16 @@ def function_horvel():
     bin_reaction = np.zeros((SIZE, SIZE))
     for i in range(1, TOT_COMPONENTS+1):
         resp = get_sensor_information("Luminosity"+str(i))
-        y, m, d, h, mi, s = resp[2]
-        if now_y - y > 0.1:
-            pass
-        elif now_m - m > 0.1:
-            pass
-        elif now_d - d > 0.1:
-            pass
-        elif now_h - h > 0.1:
+        h, mi, s = resp[2]
+        if now_h - h > 0.1:
             pass
         elif now_mi - mi > 0.1:
-            lum_reaction += (resp[1] * 2 - 1) * 2**((mi-now_mi)/150)
+            lum_reaction += (resp[1] * 2 - 1) * 2**((mi-now_mi)/150)/400
         elif now_s -s > 0.1:
-            lum_reaction += (resp[1] * 2 - 1) * 2**((s-now_s)/9000)  # 9000 = 60 * 150
+            lum_reaction += (resp[1] * 2 - 1) * 2**((s-now_s)/9000)/400  # 9000 = 60 * 150
 
         resp = get_sensor_information("Garbage"+str(i))
-        y, m, d, h, mi, s = resp[2]
+        h, mi, s = resp[2]
         pos = M1 * np.matrix([[resp[0][1]], [resp[0][0]], [1]])
         row = int(pos[0])
         if row >= SIZE:
@@ -125,21 +122,15 @@ def function_horvel():
             col = SIZE - 1
         elif col < 0:
             col = 0
-        if now_y - y > 0.1:
-            pass
-        elif now_m - m > 0.1:
-            pass
-        elif now_d - d > 0.1:
-            pass
-        elif now_h - h > 0.1:
-            garb_reaction[col][row] += resp[1] * 2**(mi-now_mi)
+        if now_h - h > 0.1:
+            garb_reaction[col][row] += resp[1] * 2**(mi-now_mi)/400
         elif now_mi - mi > 0.1:
-            garb_reaction[col][row] += resp[1] * 2**((mi-now_mi)/24)  # 24 hours a day
+            garb_reaction[col][row] += resp[1] * 2**((mi-now_mi)/24)/400  # 24 hours a day
         elif now_s - s > 0.1:
-            garb_reaction[col][row] += resp[1] * 2**((s-now_s)/9000)  # 9000 = 60 * 150
+            garb_reaction[col][row] += resp[1] * 2**((s-now_s)/9000)/400  # 9000 = 60 * 150
 
-        resp = get_sensor_information("Garbage"+str(i))
-        y, m, d, h, mi, s = resp[2]
+        resp = get_sensor_information("Bin"+str(i))
+        h, mi, s = resp[2]
         pos = M1 * np.matrix([[resp[0][1]], [resp[0][0]], [1]])
         row = int(pos[0])
         if row >= SIZE:
@@ -151,20 +142,15 @@ def function_horvel():
             col = SIZE - 1
         elif col < 0:
             col = 0
-        if now_y - y > 0.1:
-            pass
-        elif now_m - m > 0.1:
-            pass
-        elif now_d - d > 0.1:
-            pass
-        elif now_h - h > 0.1:
-            bin_reaction[col][row] += resp[1] * 2**(mi-now_mi)
+        if now_h - h > 0.1:
+            bin_reaction[col][row] += resp[1] * 2**(mi-now_mi)/400
         elif now_mi - mi > 0.1:
-            bin_reaction[col][row] += resp[1] * 2**((mi-now_mi)/24)  # 24 hours a day
+            bin_reaction[col][row] += resp[1] * 2**((mi-now_mi)/24)/400  # 24 hours a day
         elif now_s - s > 0.1:
-            bin_reaction[col][row] += resp[1] * 2**((s-now_s)/9000)  # 9000 = 60 * 150
+            resp[1] * 2 ** ((s - now_s) / 9000)/20
+            bin_reaction[col][row] += resp[1] * 2**((s-now_s)/9000)/400  # 9000 = 60 * 150
 
-    LUMINOSITY += lum_reaction
+    LUMINOSITY += lum_reaction/400
     if LUMINOSITY > 1:
         LUMINOSITY = 1
     elif LUMINOSITY < 0:
@@ -178,13 +164,15 @@ def function_horvel():
 
 
 def show_imgs():
+    global IMG_INDX
     img = np.zeros((10 * SIZE, 10 * SIZE, 3))
-    img[:, :, 0] = cv2.resize(np.ones([SIZE, SIZE]) * LUMINOSITY, (10 * SIZE, 10 * SIZE)) * 255
+    aux = np.ones((SIZE, SIZE)) * LUMINOSITY
+    img[:, :, 0] = cv2.resize(aux, (10 * SIZE, 10 * SIZE)) * 255
     img[:, :, 1] = cv2.resize(GARBAGE_MAP, (10 * SIZE, 10 * SIZE)) * 255
     img[:, :, 2] = cv2.resize(BIN_MAP, (10 * SIZE, 10 * SIZE)) * 255
 
-    cv2.imshow("image", img)
-    cv2.waitKey(250)
+    cv2.imwrite("./Imgs/image{0:8d}.jpg".format(IMG_INDX), img)
+    IMG_INDX += 1
 
 
 def three_hours():
@@ -208,16 +196,19 @@ def three_hours():
 
 def get_dirty():
     global BIN_MAP, GARBAGE_MAP, HOW_DIRTY
-    get_top = np.vectorize(lambda x: (x if x<1 else 1))
-    BIN_MAP += HOW_DIRTY * np.random.rand(SIZE, SIZE)/7
-    GARBAGE_MAP += HOW_DIRTY * np.random.rand(SIZE, SIZE)/14
+    get_top = np.vectorize(lambda x: (x if x < 1 else 1))
+    BIN_MAP += np.dot(HOW_DIRTY, np.random.rand(SIZE, SIZE))/7
+    GARBAGE_MAP += np.dot(HOW_DIRTY, np.random.rand(SIZE, SIZE))/14
     BIN_MAP = get_top(BIN_MAP)
     GARBAGE_MAP = get_top(GARBAGE_MAP)
 
 
 if __name__ == '__main__':
     COMPONENTS = [Component(i) for i in range(2, TOT_COMPONENTS+1)]
-    while True:
+    max_iter = 10000
+    progress = pb.ProgressBar(max_value=max_iter)
+    while IMG_INDX < max_iter:
+        progress.update(IMG_INDX)
         for i in range(8):
             three_hours()
         get_dirty()
