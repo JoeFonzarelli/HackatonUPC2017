@@ -6,11 +6,15 @@
 
 #include <curl\include\win32\curl\curl.h>
 
+#include <Python.h>
 #include <iostream>
+#include <cstdio>
+#include <cstdlib>
 
 #include "ui/CocosGUI.h"
 #include "cocos2d.h"
 USING_NS_CC;
+
 
 Scene* HelloWorld::createScene()
 {
@@ -29,18 +33,80 @@ bool HelloWorld::init()
     
 	CURL *curl;
 	CURLcode res;
-
+	
 	curl = curl_easy_init();
 	if (curl) {
-	auto c = curl_easy_setopt(curl, CURLOPT_URL, "http://api.thingtia.cloud/data/provedor1.component1.Score1/9999");
+
+	//append the headers
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'IDENTITY_KEY' : 'e3ba38839c9f601471b8f3f662a38ae23473bebf63cec53a183edec2d5c84e75'");
+
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'Accept' : 'Application/JSON'");
+
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'Content-Type' : 'Application/JSON'");
+
+	//connect ( //i added this here since curl_easy_send() says it requires it. )
+	curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
+
+	//specify the request (PUT in our case)
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+
+	/* enable uploading */
+	curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+
+	/* specify target URL, and note that this URL should include a file
+	name, not only a directory */
+	curl_easy_setopt(curl, CURLOPT_URL, "http://api.thingtia.cloud/data/provedor1.component1.Score1/9999");
+
+	curl_easy_setopt(curl, CURLOPT_PUT, "699");
+
+	curl_easy_cleanup(curl);
+
 	
-		std::cout << c;
 	
 		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "http://api.thingtia.cloud/data/provedor1/score1/9999");
 		
 		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "pulse=70 & temp=35");
 	}
-
+	
+	
+	Py_Initialize();
+	std::cout << " print" << std::endl;
+	PyRun_SimpleString("print('python funziona')");
+	//FILE* file_1 = std::fopen("readDB.py", "r");
+	
+	//if (file_1 != NULL)
+	//{
+		//PyRun_AnyFile(file_1, "readDB.py");
+	/*PyRun_SimpleString("import requests\
+import json\
+\
+\
+def get_sensor_information() : \
+	headers = { 'IDENTITY_KEY': 'e3ba38839c9f601471b8f3f662a38ae23473bebf63cec53a183edec2d5c84e75' } \
+	resp = requests.get('http://api.thingtia.cloud/data/provedor1/Score1', headers = headers) \
+	if not resp.ok : \
+		resp.raise_for_status() \
+\
+	data = resp.json(); \
+	out = data['observations'][0]['value'] \
+	return out \
+\
+\
+def put_sensor_information(value) : \
+	headers = { 'IDENTITY_KEY': 'e3ba38839c9f601471b8f3f662a38ae23473bebf63cec53a183edec2d5c84e75' } \
+	resp = requests.put('http://api.thingtia.cloud/data/provedor1/Score1/' + str(value), headers = headers) \
+	if not resp.ok :\
+		resp.raise_for_status()\
+\
+	print(res.content)\
+\
+\
+	data = get_sensor_information('Luminosity1') \
+	print(data)\
+\
+put_sensor_information(666);");
+*/	Py_Finalize();
+	//}
     auto visibleSize = Director::getInstance()->getVisibleSize();
     Vec2 origin = Director::getInstance()->getVisibleOrigin();
 

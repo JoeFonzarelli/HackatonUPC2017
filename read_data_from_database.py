@@ -1,6 +1,5 @@
 import requests
 import json
-import progressbar as pb
 
 
 def get_sensor_information(sensor):
@@ -9,7 +8,7 @@ def get_sensor_information(sensor):
     if not resp.ok:
         resp.raise_for_status()
 
-    data = resp.json()
+    data = json.loads(resp.content)
     out = data['observations'][0]["value"]
     out = out.split('*')
     out[0] = out[0].split(",")
@@ -32,12 +31,6 @@ def put_sensor_information(sensor, value):
         resp.raise_for_status()
 
 
-get_sensor_information("Luminosity1")
 
-
-progress = pb.ProgressBar(max_value=100)
-for i in range(1, 101):
-    progress.update(i)
-    put_sensor_information("Luminosity"+str(i), "1.1,1.1*1")
-    put_sensor_information("Garbage"+str(i), "1.1,1.1*1")
-    put_sensor_information("Bin"+str(i), "1.1,1.1*1")
+data = get_sensor_information("Luminosity1")
+print(data)

@@ -22,10 +22,10 @@ pts2 = np.float32([[LONG_TOP_LEFT, LAT_TOP_LEFT], [LONG_BOTTOM_LEFT, LAT_BOTTOM_
                    [LONG_BOTTOM_RIGHT, LAT_BOTTOM_RIGHT]])
 
 M = cv2.getAffineTransform(pts1, pts2)
-M1 = cv2.getAffineTransform(pts2, pts1)
+M1 = np.linalg.inv(M)
 
-GARBAGE_MAP = np.zeros((SIZE, SIZE))
-BIN_MAP = np.zeros((SIZE, SIZE))
+GARBAGE_MAP = np.zeros((0, 0))
+BIN_MAP = np.zeros((0, 0))
 LUMINOSITY = 0.5
 MID_DAY = 1
 TIME_PASSED = 2
@@ -39,7 +39,7 @@ def get_sensor_information(sensor):
     if not resp.ok:
         resp.raise_for_status()
 
-    data = resp.json()
+    data = json.loads(resp.content)
     out = data['observations'][0]["value"]
     out = out.split('*')
     out[0] = out[0].split(",")
@@ -67,21 +67,16 @@ class Component(object):
 
     def post(self):
         global HEADER, URL, BIN_MAP, GARBAGE_MAP, LUMINOSITY
-        new_pos = M * (np.matrix([[np.random.rand()], [np.random.rand()], [1]])+np.matrix([[self.pos[0][0]], [self.pos[0][1]], [1]]))
-        x = new_pos[0]
-        y = new_pos[1]
+        x = M * (np.random.rand(2, 1)+self.pos)
         if BIN_MAP[self.pos[0][1]][self.pos[0][0]] > self.prob_post_bin:
-            path_name = "/{0:},{1:}*{2:}".format(x, y, BIN_MAP[self.y_pos][self.x_pos] > 1)
-            path_name = URL+"Bin"+str(self.index)+path_name
-            requests.put(path_name, headers=HEADER)
+            requests.put(URL+"Bin"+str(self.index)+"{:f},{:f}*{:d}".format(x, y, BIN_MAP[self.y_pos][self.x_pos] > 1),
+                         headers=HEADER)
         if GARBAGE_MAP[self.pos[0][1]][self.pos[0][0]] > self.prob_post_garb:
-            path_name = "/{0:},{1:}*{2:}".format(x, y, GARBAGE_MAP[self.y_pos][self.x_pos] > 1)
-            path_name = URL + "Garbage" + str(self.index) + path_name
-            requests.put(path_name, headers=HEADER)
+            requests.put(URL+"Garbage"+str(self.index)+"{:f},{:f}*{:d}".format(x,y,GARBAGE_MAP[self.y_pos][self.x_pos]>1),
+                         headers=HEADER)
         if abs(1-LUMINOSITY) > self.prob_post_lumin:
-            path_name = "/{0:},{1:}*{2:}".format(x, y, LUMINOSITY < 0.5)
-            path_name = URL+"Luminosity"+str(self.index)+path_name
-            requests.put(path_name, headers=HEADER)
+            requests.put(URL+"Luminosity"+str(self.index)+"{:f},{:f}*{:d}".format(x, y, Luminosity < 0.5),
+                         headers=HEADER)
 
 
 def function_horvel():
@@ -92,10 +87,10 @@ def function_horvel():
     now_d = now.day
     now_h = now.hour
     now_mi= now.minute
-    now_s = now.second
+    now.s = now.second
     lum_reaction = 0
-    garb_reaction = np.zeros((SIZE, SIZE))
-    bin_reaction = np.zeros((SIZE, SIZE))
+    garb_reaction = np.zeros(SIZE, SIZE)
+    bin_reaction = np.zeros(SIZE, SIZE)
     for i in range(1, TOT_COMPONENTS+1):
         resp = get_sensor_information("Luminosity"+str(i))
         y, m, d, h, mi, s = resp[2]
@@ -114,13 +109,13 @@ def function_horvel():
 
         resp = get_sensor_information("Garbage"+str(i))
         y, m, d, h, mi, s = resp[2]
-        pos = M1 * np.matrix([[resp[0][1]], [resp[0][0]], [1]])
-        row = int(pos[0])
+        pos = M1 * np.matrix([[resp[0][1]], [resp[0][0]]])
+        row = int(pos[0][0])
         if row >= SIZE:
             row = SIZE - 1
         elif row < 0:
             row = 0
-        col = int(pos[1])
+        col = int(pos[0][1])
         if col >= SIZE:
             col = SIZE - 1
         elif col < 0:
@@ -140,13 +135,13 @@ def function_horvel():
 
         resp = get_sensor_information("Garbage"+str(i))
         y, m, d, h, mi, s = resp[2]
-        pos = M1 * np.matrix([[resp[0][1]], [resp[0][0]], [1]])
-        row = int(pos[0])
+        pos = M1 * np.matrix([[resp[0][1]], [resp[0][0]]])
+        row = int(pos[0][0])
         if row >= SIZE:
             row = SIZE - 1
         elif row < 0:
             row = 0
-        col = int(pos[1])
+        col = int(pos[0][1])
         if col >= SIZE:
             col = SIZE - 1
         elif col < 0:
@@ -178,10 +173,10 @@ def function_horvel():
 
 
 def show_imgs():
-    img = np.zeros((10 * SIZE, 10 * SIZE, 3))
-    img[:, :, 0] = cv2.resize(np.ones([SIZE, SIZE]) * LUMINOSITY, (10 * SIZE, 10 * SIZE)) * 255
-    img[:, :, 1] = cv2.resize(GARBAGE_MAP, (10 * SIZE, 10 * SIZE)) * 255
-    img[:, :, 2] = cv2.resize(BIN_MAP, (10 * SIZE, 10 * SIZE)) * 255
+    img = numpy.zeros([10 * SIZE, 10 * SIZE, 3])
+    img[:, :, 0] = cv2.resize(np.ones([SIZE, SIZE]) * LUMINOSITY / 255, (10 * SIZE, 10 * SIZE))
+    img[:, :, 1] = cv2.resize(GARBAGE_MAP, (10 * SIZE, 10 * SIZE))
+    img[:, :, 2] = cv2.resize(BIN_MAP, (10 * SIZE, 10 * SIZE))
 
     cv2.imshow("image", img)
     cv2.waitKey(250)
@@ -194,25 +189,18 @@ def three_hours():
     if not TIME_PASSED % 4:
         TIME_PASSED = 0
         MID_DAY *= -1
-    if LUMINOSITY > 1:
-        LUMINOSITY = 1
-    elif LUMINOSITY < 0:
-        LUMINOSITY = 0
 
     for component in COMPONENTS:
         component.post()
 
-    function_horvel()
+    function_Horvel()
     show_imgs()
 
 
 def get_dirty():
-    global BIN_MAP, GARBAGE_MAP, HOW_DIRTY
-    get_top = np.vectorize(lambda x: (x if x<1 else 1))
-    BIN_MAP += HOW_DIRTY * np.random.rand(SIZE, SIZE)/7
-    GARBAGE_MAP += HOW_DIRTY * np.random.rand(SIZE, SIZE)/14
-    BIN_MAP = get_top(BIN_MAP)
-    GARBAGE_MAP = get_top(GARBAGE_MAP)
+        global BIN_MAP, GARBAGE_MAP, HOW_DIRTY
+        BIN_MAP += HOW_DIRTY * np.random.rand(SIZE, SIZE)/7
+        GARBAGE_MAP += HOW_DIRTY * np.random.rand(SIZE, SIZE)/14
 
 
 if __name__ == '__main__':
