@@ -24,60 +24,49 @@ Scene* HelloWorld::createScene()
 // on "init" you need to initialize your instance
 bool HelloWorld::init()
 {
-	//////////////////////////////
-	// 1. super init first
-	if (!Scene::init())
-	{
-		return false;
-	}
-
+    //////////////////////////////
+    // 1. super init first
+    if ( !Scene::init() )
+    {
+        return false;
+    }
+    
 	CURL *curl;
 	CURLcode res;
-	struct curl_slist *list = NULL;
-
+	
 	curl = curl_easy_init();
 	if (curl) {
-		//curl_easy_setopt(curl, CURLOPT_SSL_VERIFRYPEER, false);
-		//append the headers
-		//curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "");
 
-		list = curl_slist_append(list, "IDENTITY_KEY:e3ba38839c9f601471b8f3f662a38ae23473bebf63cec53a183edec2d5c84e75");
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+	//append the headers
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'IDENTITY_KEY' : 'e3ba38839c9f601471b8f3f662a38ae23473bebf63cec53a183edec2d5c84e75'");
 
-		//curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'Accept' : 'Application/JSON'");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'Accept' : 'Application/JSON'");
 
-		//curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'Content-Type' : 'Application/JSON'");
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, "'Content-Type' : 'Application/JSON'");
 
-		//specify the request (PUT in our case)
-		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+	//connect ( //i added this here since curl_easy_send() says it requires it. )
+	curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
 
-		/* enable uploading */
-		curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-		//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-		/* specify target URL, and note that this URL should include a file
-		name, not only a directory */
-		curl_easy_setopt(curl, CURLOPT_URL, "http://api.thingtia.cloud/data/provedor1/Score1/666");
+	//specify the request (PUT in our case)
+	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
 
-		//curl_easy_setopt(curl, CURLOPT_PUT, "7");
+	/* enable uploading */
+	curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
 
-		res = curl_easy_perform(curl);
-		/* Check for errors */
-		if (res != CURLE_OK)
-			fprintf(stderr, "curl_easy_perform() failed: %s\n",
-				curl_easy_strerror(res));
+	/* specify target URL, and note that this URL should include a file
+	name, not only a directory */
+	curl_easy_setopt(curl, CURLOPT_URL, "http://api.thingtia.cloud/data/provedor1.component1.Score1/9999");
 
-		CCLOG(res);
+	curl_easy_setopt(curl, CURLOPT_PUT, "699");
 
-		curl_easy_cleanup(curl);
-	}
+	curl_easy_cleanup(curl);
 
 	
-
-
-
-	//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "http://api.thingtia.cloud/data/provedor1/score1/9999");
-
-	//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "pulse=70 & temp=35");
+	
+		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "http://api.thingtia.cloud/data/provedor1/score1/9999");
+		
+		//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "pulse=70 & temp=35");
+	}
 	
 	
 	Py_Initialize();
